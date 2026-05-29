@@ -5,6 +5,8 @@
 #   "sapien>=3.0.0",
 #   "opencv-python>=4.8",
 #   "numpy>=1.24",
+#   "pyyaml",
+#   "dex-retargeting @ git+https://github.com/dexsuite/dex-retargeting",
 # ]
 # ///
 """Real-time hand retargeting demo using a webcam.
