@@ -7,7 +7,16 @@
 #   "numpy>=1.24",
 #   "pyyaml",
 #   "dex-retargeting @ git+https://github.com/dexsuite/dex-retargeting",
+#   "torch",
 # ]
+#
+# [[tool.uv.indexes]]
+# name = "pytorch-cpu"
+# url = "https://download.pytorch.org/whl/cpu"
+# explicit = true
+#
+# [tool.uv.sources]
+# torch = { index = "pytorch-cpu" }
 # ///
 """Real-time hand retargeting demo using a webcam.
 

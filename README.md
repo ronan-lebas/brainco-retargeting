@@ -6,7 +6,10 @@ Retargets 25-point XR/MediaPipe hand landmarks to 6 BrainCo prosthetic hand moto
 
 Requires Python ≥ 3.9 and [uv](https://github.com/astral-sh/uv).
 
-`dex-retargeting` ([dexsuite/dex-retargeting](https://github.com/dexsuite/dex-retargeting)) is a direct dependency and is pulled from GitHub automatically. A working `git` installation is therefore required.
+Two dependencies require special handling, both configured in `pyproject.toml` so they install automatically:
+
+- **`dex-retargeting`** — pulled from [dexsuite/dex-retargeting](https://github.com/dexsuite/dex-retargeting) on GitHub (requires `git`)
+- **`torch`** — pulled from the PyTorch CPU index (`https://download.pytorch.org/whl/cpu`)
 
 ```bash
 uv pip install -e .

@@ -10,7 +10,16 @@ dependencies = [
     "numpy",
     "dex-retargeting @ git+https://github.com/dexsuite/dex-retargeting",
     "pyyaml",
+    "torch",
 ]
+
+[[tool.uv.indexes]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
 
 [tool.setuptools.packages.find]
 where = ["."]
