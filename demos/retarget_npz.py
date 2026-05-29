@@ -1,15 +1,12 @@
-"""
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#   "brainco-retargeting @ ..",
 #   "sapien>=3.0.0",
 #   "opencv-python>=4.8",
 #   "numpy>=1.24",
 # ]
 # ///
-
-Retarget hand landmarks from a .npz file.
+"""Retarget hand landmarks from a .npz file.
 
 Input .npz must contain:
     landmarks  – np.ndarray of shape (N, 25, 3)

@@ -1,16 +1,13 @@
-"""
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#   "brainco-retargeting @ ..",
 #   "mediapipe>=0.10",
 #   "sapien>=3.0.0",
 #   "opencv-python>=4.8",
 #   "numpy>=1.24",
 # ]
 # ///
-
-Run end-to-end retargeting from a video file.
+"""Run end-to-end retargeting from a video file.
 
 MediaPipe extracts hand landmarks from each frame; BrainCo retargeting maps them
 to 6 motor commands. At least one output must be specified.

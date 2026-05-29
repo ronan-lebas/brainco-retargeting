@@ -1,16 +1,13 @@
-"""
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#   "brainco-retargeting @ ..",
 #   "mediapipe>=0.10",
 #   "sapien>=3.0.0",
 #   "opencv-python>=4.8",
 #   "numpy>=1.24",
 # ]
 # ///
-
-Real-time hand retargeting demo using a webcam.
+"""Real-time hand retargeting demo using a webcam.
 
 Opens a camera, runs MediaPipe Hands on each frame, converts the 21-pt
 MediaPipe landmarks to the 25-pt XR format, runs BrainCo retargeting, and

@@ -1,15 +1,12 @@
-"""
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#   "brainco-retargeting @ ..",
 #   "mediapipe>=0.10",
 #   "opencv-python>=4.8",
 #   "numpy>=1.24",
 # ]
 # ///
-
-Record hand landmarks (no retargeting) from a video file or live webcam.
+"""Record hand landmarks (no retargeting) from a video file or live webcam.
 
 Outputs a .npz file with keys:
     landmarks  – np.ndarray of shape (N, 25, 3), float64
