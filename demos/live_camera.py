@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#   "mediapipe>=0.10",
+#   "mediapipe==0.10.21",
 #   "sapien>=3.0.0",
 #   "opencv-python>=4.8",
 #   "numpy>=1.24",
@@ -9,6 +9,9 @@
 #   "dex-retargeting @ git+https://github.com/dexsuite/dex-retargeting",
 #   "torch",
 # ]
+#
+# [tool.uv]
+# override-dependencies = ["numpy>=1.24,<2"]
 #
 # [[tool.uv.index]]
 # name = "pytorch-cpu"
@@ -32,8 +35,12 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
+
+# Must be set before cv2/Qt initialises to prevent black windows on Linux+NVIDIA
+os.environ.setdefault("QT_X11_NO_MITSHM", "1")
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -68,13 +75,21 @@ def parse_args():
 def main():
     args = parse_args()
 
-    cap = cv2.VideoCapture(args.camera_id)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, args.height)
-    if not cap.isOpened():
-        sys.exit(f"Cannot open camera {args.camera_id}")
+    panel_w, panel_h = 640, 480
 
+    # Create the display window FIRST to lock in Qt's OpenGL context before any
+    # EGL initialisation (MediaPipe and Sapien both trigger EGL on NVIDIA GPUs,
+    # which corrupts the Qt GL widget if it hasn't been created yet).
+    placeholder = np.zeros((panel_h, panel_w * 2, 3), dtype=np.uint8)
+    cv2.putText(placeholder, "Initializing...", (panel_w // 2 + 160, panel_h // 2),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (200, 200, 200), 2)
+    cv2.imshow("BrainCo Retargeting - press q to quit", placeholder)
+    cv2.waitKey(1)
+
+    print("Loading retargeter...")
     retargeter = BrainCoRetargeter()
+
+    print("Loading MediaPipe...")
     mp_hands_mod = mp.solutions.hands
     hands = mp_hands_mod.Hands(
         static_image_mode=False,
@@ -84,13 +99,20 @@ def main():
         min_tracking_confidence=0.5,
     )
 
-    # Sapien renderer is initialised lazily (after first detected side)
-    renderer: SapienHandRenderer | None = None
-    active_side: str | None = None
-    accumulated_landmarks: list[np.ndarray] = []
+    active_side = args.hand if args.hand != "auto" else "right"
+    print(f"Loading Sapien renderer ({active_side} hand)...")
+    renderer = SapienHandRenderer(active_side, panel_w, panel_h)
 
+    # Open camera after all EGL/GPU init has settled
+    backend = cv2.CAP_V4L2 if sys.platform == "linux" else cv2.CAP_ANY
+    cap = cv2.VideoCapture(args.camera_id, backend)
+    if not cap.isOpened():
+        sys.exit(f"Cannot open camera {args.camera_id}")
+    for _ in range(15):
+        cap.read()
+
+    accumulated_landmarks: list[np.ndarray] = []
     motors = np.zeros(6)
-    panel_w, panel_h = 640, 480
 
     print("Press 'q' to quit.")
 
@@ -102,7 +124,6 @@ def main():
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = hands.process(frame_rgb)
 
-        # Resize camera feed to panel size
         cam_panel = cv2.resize(frame, (panel_w, panel_h))
 
         if results.multi_hand_world_landmarks and results.multi_handedness:
@@ -110,16 +131,14 @@ def main():
             mp21 = np.array([[lm.x, lm.y, lm.z] for lm in wl.landmark], dtype=np.float64)
             xr25 = mp21_to_xr25(mp21)
 
-            # Determine side
-            mp_side_raw = results.multi_handedness[0].classification[0].label  # "Left"/"Right"
-            # MediaPipe labels are mirrored for a front-facing camera: "Left" label = person's right
+            mp_side_raw = results.multi_handedness[0].classification[0].label
             mp_side = "right" if mp_side_raw == "Left" else "left"
             if args.hand != "auto":
                 mp_side = args.hand
 
-            # (Re)initialise renderer on side change
             if active_side != mp_side:
                 active_side = mp_side
+                print(f"Side changed to {active_side}, reloading Sapien renderer...")
                 renderer = SapienHandRenderer(active_side, panel_w, panel_h)
 
             retarget_fn = retargeter.retarget_left if active_side == "left" else retargeter.retarget_right
@@ -128,32 +147,21 @@ def main():
             if args.output_npz:
                 accumulated_landmarks.append(xr25.copy())
 
-            # Draw skeleton on camera panel
             if results.multi_hand_landmarks:
                 draw_hand_skeleton_mp21(cam_panel, results.multi_hand_landmarks[0])
 
-        # Render robot hand
-        if renderer is not None:
-            robot_panel = renderer.render(motors)
-        else:
-            robot_panel = np.full((panel_h, panel_w, 3), 30, dtype=np.uint8)
-            cv2.putText(robot_panel, "Waiting for hand...", (160, panel_h // 2),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2)
-
-        # Motor bars on robot panel
+        robot_panel = renderer.render(motors)
         robot_panel = draw_motor_bars(robot_panel, motors)
 
-        # Side-by-side display
         combined = np.hstack([cam_panel, robot_panel])
         cv2.putText(combined, "Camera", (10, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
         cv2.putText(combined, "BrainCo Hand", (panel_w + 10, 24),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
-        if active_side:
-            cv2.putText(combined, active_side.upper(), (panel_w + 10, 54),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 220, 100), 2)
+        cv2.putText(combined, active_side.upper(), (panel_w + 10, 54),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 220, 100), 2)
 
-        cv2.imshow("BrainCo Retargeting – press q to quit", combined)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+        cv2.imshow("BrainCo Retargeting - press q to quit", combined)
+        if cv2.waitKey(30) & 0xFF == ord("q"):
             break
 
     cap.release()

@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#   "mediapipe>=0.10",
+#   "mediapipe==0.10.21",
 #   "sapien>=3.0.0",
 #   "opencv-python>=4.8",
 #   "numpy>=1.24",
@@ -9,6 +9,9 @@
 #   "dex-retargeting @ git+https://github.com/dexsuite/dex-retargeting",
 #   "torch",
 # ]
+#
+# [tool.uv]
+# override-dependencies = ["numpy>=1.24,<2"]
 #
 # [[tool.uv.index]]
 # name = "pytorch-cpu"

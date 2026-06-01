@@ -9,6 +9,9 @@
 #   "torch",
 # ]
 #
+# [tool.uv]
+# override-dependencies = ["numpy>=1.24,<2"]
+#
 # [[tool.uv.index]]
 # name = "pytorch-cpu"
 # url = "https://download.pytorch.org/whl/cpu"

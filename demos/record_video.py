@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#   "mediapipe>=0.10",
+#   "mediapipe==0.10.21",
 #   "opencv-python>=4.8",
 #   "numpy>=1.24",
 # ]
@@ -20,8 +20,12 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
+
+# Must be set before cv2/Qt initialises to prevent black windows on Linux+NVIDIA
+os.environ.setdefault("QT_X11_NO_MITSHM", "1")
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -52,19 +56,18 @@ def parse_args():
 def main():
     args = parse_args()
 
-    if args.live:
-        cap = cv2.VideoCapture(args.camera_id)
-        print(f"Recording from camera {args.camera_id}. Press 'q' to stop and save.")
-    else:
-        if not Path(args.input).exists():
-            sys.exit(f"Input file not found: {args.input}")
-        cap = cv2.VideoCapture(args.input)
-        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(f"Processing {args.input}  ({total} frames)")
+    # Show the preview window BEFORE MediaPipe initialises.
+    # MediaPipe's Hands() triggers EGL init on the NVIDIA GPU; if that happens
+    # before Qt's OpenGL widget is created, the widget gets a black/broken context.
+    # Calling imshow+waitKey here locks in Qt's GL context first.
+    if args.preview:
+        placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
+        cv2.putText(placeholder, "Initializing...", (160, 240),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (200, 200, 200), 2)
+        cv2.imshow("Record - press q to stop", placeholder)
+        cv2.waitKey(1)
 
-    if not cap.isOpened():
-        sys.exit("Cannot open video source")
-
+    # Init MediaPipe after the window is created (EGL starts here)
     mp_hands_mod = mp.solutions.hands
     hands = mp_hands_mod.Hands(
         static_image_mode=not args.live,
@@ -73,6 +76,25 @@ def main():
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5,
     )
+
+    # Open camera AFTER EGL has settled to avoid V4L2 disruption
+    if args.live:
+        backend = cv2.CAP_V4L2 if sys.platform == "linux" else cv2.CAP_ANY
+        cap = cv2.VideoCapture(args.camera_id, backend)
+        if not cap.isOpened():
+            sys.exit(f"Cannot open camera {args.camera_id}")
+        # Drain startup black frames
+        for _ in range(15):
+            cap.read()
+        print(f"Recording from camera {args.camera_id}. Press 'q' to stop and save.")
+    else:
+        if not Path(args.input).exists():
+            sys.exit(f"Input file not found: {args.input}")
+        cap = cv2.VideoCapture(args.input)
+        if not cap.isOpened():
+            sys.exit(f"Cannot open video: {args.input}")
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        print(f"Processing {args.input}  ({total} frames)")
 
     accumulated: list[np.ndarray] = []
     detected_side: str | None = None
@@ -106,8 +128,8 @@ def main():
         if args.preview:
             cv2.putText(frame, f"Frames: {len(accumulated)}", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-            cv2.imshow("Record – press q to stop", frame)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            cv2.imshow("Record - press q to stop", frame)
+            if cv2.waitKey(30) & 0xFF == ord("q"):
                 break
 
         if not args.live and frame_idx % 100 == 0:
