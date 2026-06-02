@@ -48,8 +48,16 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from _utils import SapienHandRenderer, draw_hand_skeleton_mp21, draw_motor_bars, mp21_to_xr25
+from _utils import SapienHandRenderer, _MOTOR_RANGES, draw_hand_skeleton_mp21, draw_motor_bars, mp21_to_xr25
 from brainco_retargeting import BrainCoRetargeter
+
+# np_retargeting lives in the repo root, added to sys.path by _utils above
+import np_retargeting as _np_retargeting
+
+_NP_JOINT_ORDER = [
+    'thumb_metacarpal', 'thumb_proximal',
+    'index_proximal', 'middle_proximal', 'ring_proximal', 'pinky_proximal',
+]
 
 
 def parse_args():
@@ -69,6 +77,11 @@ def parse_args():
     )
     p.add_argument("--width", type=int, default=640, help="Camera capture width")
     p.add_argument("--height", type=int, default=480, help="Camera capture height")
+    p.add_argument(
+        "--np-retarget",
+        action="store_true",
+        help="Use pure-numpy retargeter (np_retargeting.py) instead of dex-retargeting.",
+    )
     return p.parse_args()
 
 
@@ -86,8 +99,11 @@ def main():
     cv2.imshow("BrainCo Retargeting - press q to quit", placeholder)
     cv2.waitKey(1)
 
-    print("Loading retargeter...")
-    retargeter = BrainCoRetargeter()
+    if not args.np_retarget:
+        print("Loading retargeter...")
+        retargeter = BrainCoRetargeter()
+    else:
+        print("Using pure-numpy retargeter.")
 
     print("Loading MediaPipe...")
     mp_hands_mod = mp.solutions.hands
@@ -129,7 +145,6 @@ def main():
         if results.multi_hand_world_landmarks and results.multi_handedness:
             wl = results.multi_hand_world_landmarks[0]
             mp21 = np.array([[lm.x, lm.y, lm.z] for lm in wl.landmark], dtype=np.float64)
-            xr25 = mp21_to_xr25(mp21)
 
             mp_side_raw = results.multi_handedness[0].classification[0].label
             mp_side = "right" if mp_side_raw == "Left" else "left"
@@ -141,11 +156,17 @@ def main():
                 print(f"Side changed to {active_side}, reloading Sapien renderer...")
                 renderer = SapienHandRenderer(active_side, panel_w, panel_h)
 
-            retarget_fn = retargeter.retarget_left if active_side == "left" else retargeter.retarget_right
-            motors = retarget_fn(xr25)
+            if args.np_retarget:
+                angles = _np_retargeting.retarget(mp21, active_side)
+                raw = np.array([angles[f'{active_side}_{k}_joint'] for k in _NP_JOINT_ORDER])
+                motors = np.array([(r - lo) / (hi - lo) for r, (lo, hi) in zip(raw, _MOTOR_RANGES)])
+            else:
+                xr25 = mp21_to_xr25(mp21)
+                retarget_fn = retargeter.retarget_left if active_side == "left" else retargeter.retarget_right
+                motors = retarget_fn(xr25)
 
             if args.output_npz:
-                accumulated_landmarks.append(xr25.copy())
+                accumulated_landmarks.append((mp21 if args.np_retarget else xr25).copy())
 
             if results.multi_hand_landmarks:
                 draw_hand_skeleton_mp21(cam_panel, results.multi_hand_landmarks[0])
