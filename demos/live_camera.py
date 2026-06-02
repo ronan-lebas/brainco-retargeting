@@ -157,8 +157,15 @@ def main():
             if target_idx is None:
                 target_idx = 0
 
-            wl = results.multi_hand_landmarks[target_idx]
-            mp21 = np.array([[lm.x, lm.y, lm.z] for lm in wl.landmark], dtype=np.float64)
+            # np_retargeting uses pure angle math → image-space normalized landmarks work fine.
+            # BrainCoRetargeter expects metric 3D coordinates → requires world landmarks.
+            if args.np_retarget:
+                src = results.multi_hand_landmarks[target_idx]
+            else:
+                if not results.multi_hand_world_landmarks:
+                    continue
+                src = results.multi_hand_world_landmarks[target_idx]
+            mp21 = np.array([[lm.x, lm.y, lm.z] for lm in src.landmark], dtype=np.float64)
 
             mp_side_raw = results.multi_handedness[target_idx].classification[0].label
             mp_side = "right" if mp_side_raw == "Left" else "left"

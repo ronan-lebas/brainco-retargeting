@@ -129,7 +129,9 @@ def main():
             if target_idx is None:
                 target_idx = 0
 
-            wl = results.multi_hand_landmarks[target_idx]
+            if not results.multi_hand_world_landmarks:
+                continue
+            wl = results.multi_hand_world_landmarks[target_idx]
             mp21 = np.array([[lm.x, lm.y, lm.z] for lm in wl.landmark], dtype=np.float64)
             xr25 = mp21_to_xr25(mp21)
 
