@@ -109,7 +109,7 @@ def main():
     mp_hands_mod = mp.solutions.hands
     hands = mp_hands_mod.Hands(
         static_image_mode=False,
-        max_num_hands=1,
+        max_num_hands=2,
         model_complexity=1,
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5,
@@ -138,15 +138,29 @@ def main():
             break
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_rgb.flags.writeable = False
         results = hands.process(frame_rgb)
+        frame_rgb.flags.writeable = True
 
         cam_panel = cv2.resize(frame, (panel_w, panel_h))
 
-        if results.multi_hand_world_landmarks and results.multi_handedness:
-            wl = results.multi_hand_world_landmarks[0]
+        if results.multi_hand_landmarks and results.multi_handedness:
+            # Find the target hand: MediaPipe labels are mirrored (camera perspective),
+            # so "Left" = actual right hand and "Right" = actual left hand.
+            target_idx = None
+            if args.hand != "auto":
+                mp_label_wanted = "Left" if args.hand == "right" else "Right"
+                for hidx, handedness in enumerate(results.multi_handedness):
+                    if handedness.classification[0].label == mp_label_wanted:
+                        target_idx = hidx
+                        break
+            if target_idx is None:
+                target_idx = 0
+
+            wl = results.multi_hand_landmarks[target_idx]
             mp21 = np.array([[lm.x, lm.y, lm.z] for lm in wl.landmark], dtype=np.float64)
 
-            mp_side_raw = results.multi_handedness[0].classification[0].label
+            mp_side_raw = results.multi_handedness[target_idx].classification[0].label
             mp_side = "right" if mp_side_raw == "Left" else "left"
             if args.hand != "auto":
                 mp_side = args.hand
@@ -168,8 +182,7 @@ def main():
             if args.output_npz:
                 accumulated_landmarks.append((mp21 if args.np_retarget else xr25).copy())
 
-            if results.multi_hand_landmarks:
-                draw_hand_skeleton_mp21(cam_panel, results.multi_hand_landmarks[0])
+            draw_hand_skeleton_mp21(cam_panel, results.multi_hand_landmarks[target_idx])
 
         robot_panel = renderer.render(motors)
         robot_panel = draw_motor_bars(robot_panel, motors)
