@@ -13,6 +13,13 @@ dependencies = [
     "torch",
 ]
 
+[project.optional-dependencies]
+live = [
+    "mediapipe==0.10.21",
+    "sapien>=3.0.0",
+    "opencv-python>=4.8",
+]
+
 [tool.uv]
 override-dependencies = ["numpy>=1.24,<2"]
 
@@ -29,3 +36,6 @@ where = ["."]
 
 [tool.setuptools.package-data]
 brainco_retargeting = ["assets/**/*"]
+
+[tool.setuptools]
+py-modules = ["video_retarget", "np_retargeting"]

@@ -40,13 +40,13 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import cv2
 import mediapipe as mp
 import numpy as np
 
-from _utils import SapienHandRenderer, VideoWriter, draw_hand_skeleton_mp21, draw_motor_bars, mp21_to_xr25
+from brainco_retargeting._utils import SapienHandRenderer, VideoWriter, draw_hand_skeleton_mp21, draw_motor_bars, mp21_to_xr25
 from brainco_retargeting import BrainCoRetargeter
 
 

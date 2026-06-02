@@ -42,16 +42,14 @@ from pathlib import Path
 # Must be set before cv2/Qt initialises to prevent black windows on Linux+NVIDIA
 os.environ.setdefault("QT_X11_NO_MITSHM", "1")
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import cv2
 import mediapipe as mp
 import numpy as np
 
-from _utils import SapienHandRenderer, _MOTOR_RANGES, draw_hand_skeleton_mp21, draw_motor_bars, mp21_to_xr25
+from brainco_retargeting._utils import SapienHandRenderer, _MOTOR_RANGES, draw_hand_skeleton_mp21, draw_motor_bars, mp21_to_xr25
 from brainco_retargeting import BrainCoRetargeter
-
-# np_retargeting lives in the repo root, added to sys.path by _utils above
 import np_retargeting as _np_retargeting
 
 _NP_JOINT_ORDER = [
