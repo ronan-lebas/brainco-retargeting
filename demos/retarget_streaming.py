@@ -6,19 +6,19 @@ thread, updating a cv2 GUI window continuously.  The latest 6 motor values
 
 Quickstart
 ----------
-    import video_retarget
+    import retarget_streaming
 
-    video_retarget.start()          # opens GUI window, starts camera
+    retarget_streaming.start()          # opens GUI window, starts camera
 
     while True:
-        joints = video_retarget.get_joints()   # (6,) float array, [0, 1]
+        joints = retarget_streaming.get_joints()   # (6,) float array, [0, 1]
         ...
 
-    video_retarget.stop()           # or just let the process exit
+    retarget_streaming.stop()           # or just let the process exit
 
 Class API (for explicit lifecycle management)
 ---------------------------------------------
-    with video_retarget.VideoRetargeter(hand="right") as vr:
+    with retarget_streaming.VideoRetargeter(hand="right") as vr:
         joints = vr.joints
 """
 
@@ -42,11 +42,7 @@ from brainco_retargeting._utils import (
     mp21_to_xr25,
 )
 
-try:
-    import np_retargeting as _np_retargeting
-    _HAS_NP_RETARGET = True
-except ImportError:
-    _HAS_NP_RETARGET = False
+from brainco_retargeting import np_retargeting as _np_retargeting
 
 _NP_JOINT_ORDER = [
     'thumb_metacarpal', 'thumb_proximal',
@@ -130,10 +126,7 @@ class VideoRetargeter:
         cv2.imshow("BrainCo Retargeting - press q to quit", placeholder)
         cv2.waitKey(1)
 
-        if not self._np_retarget:
-            retargeter = BrainCoRetargeter()
-        elif not _HAS_NP_RETARGET:
-            raise ImportError("np_retargeting not available; install from repo root or unset np_retarget")
+        retargeter = None if self._np_retarget else BrainCoRetargeter()
 
         mp_hands_mod = mp.solutions.hands
         hands = mp_hands_mod.Hands(
@@ -265,7 +258,7 @@ def get_joints() -> np.ndarray:
     Raises RuntimeError if start() has not been called.
     """
     if _instance is None:
-        raise RuntimeError("Call video_retarget.start() before get_joints()")
+        raise RuntimeError("Call retarget_streaming.start() before get_joints()")
     return _instance.joints
 
 

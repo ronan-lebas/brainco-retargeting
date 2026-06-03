@@ -1,25 +1,3 @@
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#   "sapien>=3.0.0",
-#   "opencv-python>=4.8",
-#   "numpy>=1.24",
-#   "pyyaml",
-#   "dex-retargeting @ git+https://github.com/dexsuite/dex-retargeting",
-#   "torch",
-# ]
-#
-# [tool.uv]
-# override-dependencies = ["numpy>=1.24,<2"]
-#
-# [[tool.uv.index]]
-# name = "pytorch-cpu"
-# url = "https://download.pytorch.org/whl/cpu"
-# explicit = true
-#
-# [tool.uv.sources]
-# torch = { index = "pytorch-cpu" }
-# ///
 """Retarget hand landmarks from a .npz file.
 
 Input .npz must contain:
@@ -40,12 +18,10 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-
 import cv2
 import numpy as np
 
-from _utils import SapienHandRenderer, VideoWriter, draw_motor_bars
+from brainco_retargeting._utils import SapienHandRenderer, VideoWriter, draw_motor_bars
 from brainco_retargeting import BrainCoRetargeter
 
 

@@ -14,6 +14,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# mediapipe==0.10.21 requires numpy<2; dex-retargeting requires numpy>=2.
+# The conflict is resolved by override-dependencies below (uv root-project only).
+# Downstream projects must add the same [tool.uv] block to their own pyproject.toml.
 live = [
     "mediapipe==0.10.21",
     "sapien>=3.0.0",
@@ -37,5 +40,3 @@ where = ["."]
 [tool.setuptools.package-data]
 brainco_retargeting = ["assets/**/*"]
 
-[tool.setuptools]
-py-modules = ["video_retarget", "np_retargeting"]

@@ -1,26 +1,3 @@
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#   "mediapipe==0.10.21",
-#   "sapien>=3.0.0",
-#   "opencv-python>=4.8",
-#   "numpy>=1.24",
-#   "pyyaml",
-#   "dex-retargeting @ git+https://github.com/dexsuite/dex-retargeting",
-#   "torch",
-# ]
-#
-# [tool.uv]
-# override-dependencies = ["numpy>=1.24,<2"]
-#
-# [[tool.uv.index]]
-# name = "pytorch-cpu"
-# url = "https://download.pytorch.org/whl/cpu"
-# explicit = true
-#
-# [tool.uv.sources]
-# torch = { index = "pytorch-cpu" }
-# ///
 """Run end-to-end retargeting from a video file.
 
 MediaPipe extracts hand landmarks from each frame; BrainCo retargeting maps them

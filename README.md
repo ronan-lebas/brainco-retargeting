@@ -62,12 +62,16 @@ The retargeter uses XR-style 25-point landmarks, which differ from the standard 
 
 ## Demo Scripts
 
-The `demos/` directory contains ready-to-run scripts covering all common usage patterns. All scripts use [uv](https://github.com/astral-sh/uv) with PEP 723 inline metadata — dependencies are installed automatically on first run.
+The `demos/` directory contains ready-to-run scripts covering all common usage patterns. Install dependencies first:
+
+```bash
+uv pip install -e ".[live]"
+```
 
 Run from the **repo root**:
 
 ```bash
-uv run demos/<script>.py [args]
+python demos/<script>.py [args]
 ```
 
 ### `demos/live_camera.py` — Real-time webcam demo
@@ -77,9 +81,9 @@ Opens a camera, tracks the hand with MediaPipe, and shows a side-by-side window:
 - **Right** – Sapien render of the BrainCo hand + motor value bars
 
 ```bash
-uv run demos/live_camera.py
-uv run demos/live_camera.py --hand right --camera-id 1
-uv run demos/live_camera.py --hand left --output-npz session.npz   # save landmarks on quit (q)
+python demos/live_camera.py
+python demos/live_camera.py --hand right --camera-id 1
+python demos/live_camera.py --hand left --output-npz session.npz   # save landmarks on quit (q)
 ```
 
 | Flag | Default | Description |
@@ -95,8 +99,8 @@ uv run demos/live_camera.py --hand left --output-npz session.npz   # save landma
 Extracts 25-pt hand landmarks from a video file or live webcam and saves them to `.npz`. No retargeting is performed — useful for capturing raw motion data.
 
 ```bash
-uv run demos/record_video.py --input clip.mp4 --hand right --output-npz landmarks.npz
-uv run demos/record_video.py --live --hand right --output-npz landmarks.npz --preview
+python demos/record_video.py --input clip.mp4 --hand right --output-npz landmarks.npz
+python demos/record_video.py --live --hand right --output-npz landmarks.npz --preview
 ```
 
 | Flag | Default | Description |
@@ -121,9 +125,9 @@ side       str                   "left" or "right"
 Takes a landmarks `.npz` and produces motor commands and/or a visualisation video.
 
 ```bash
-uv run demos/retarget_npz.py --input landmarks.npz --output-npz motors.npz
-uv run demos/retarget_npz.py --input landmarks.npz --output-video hand.mp4 --fps 30
-uv run demos/retarget_npz.py --input landmarks.npz --output-npz motors.npz --output-video hand.mp4
+python demos/retarget_npz.py --input landmarks.npz --output-npz motors.npz
+python demos/retarget_npz.py --input landmarks.npz --output-video hand.mp4 --fps 30
+python demos/retarget_npz.py --input landmarks.npz --output-npz motors.npz --output-video hand.mp4
 ```
 
 | Flag | Default | Description |
@@ -145,9 +149,9 @@ motors  (N, 6)  float64   values in [0, 1]
 Runs MediaPipe + retargeting on a video file in a single step.
 
 ```bash
-uv run demos/retarget_video.py --input clip.mp4 --hand right --output-npz motors.npz
-uv run demos/retarget_video.py --input clip.mp4 --hand right --output-video out.mp4
-uv run demos/retarget_video.py --input clip.mp4 --hand right \
+python demos/retarget_video.py --input clip.mp4 --hand right --output-npz motors.npz
+python demos/retarget_video.py --input clip.mp4 --hand right --output-video out.mp4
+python demos/retarget_video.py --input clip.mp4 --hand right \
     --output-npz motors.npz --output-video out.mp4
 ```
 
@@ -161,9 +165,43 @@ uv run demos/retarget_video.py --input clip.mp4 --hand right \
 
 ---
 
+### `demos/retarget_streaming.py` — Real-time retargeting as an importable module
+
+Wraps the full camera + MediaPipe + retargeting pipeline in a background thread so it can be embedded in another Python process. The GUI window updates continuously; the caller reads the latest motor values at any time.
+
+```python
+import sys
+sys.path.insert(0, "path/to/brainco_retargeting/demos")
+import retarget_streaming
+
+retarget_streaming.start(hand="right")   # opens GUI, starts camera thread
+
+while True:
+    joints = retarget_streaming.get_joints()   # np.ndarray (6,) in [0, 1]
+    ...
+
+retarget_streaming.stop()
+```
+
+Or with explicit lifecycle via the `VideoRetargeter` class:
+
+```python
+with retarget_streaming.VideoRetargeter(hand="right") as vr:
+    joints = vr.joints
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `hand` | `"auto"` | `"left"`, `"right"`, or `"auto"` |
+| `camera_id` | `0` | OpenCV device index |
+| `np_retarget` | `False` | Use pure-numpy retargeter instead of dex-retargeting |
+| `width` / `height` | `640` / `480` | Capture resolution |
+
+---
+
 ## MediaPipe → 25-point Conversion
 
-Standard MediaPipe gives 21 landmarks. The 4 missing metacarpal joints (indices 5, 10, 15, 20) are synthesised by placing them at 1/3 of the wrist→MCP vector, consistent with palm anatomy. This conversion is applied automatically in all demo scripts via `demos/_utils.py:mp21_to_xr25()`.
+Standard MediaPipe gives 21 landmarks. The 4 missing metacarpal joints (indices 5, 10, 15, 20) are synthesised by placing them at 1/3 of the wrist→MCP vector, consistent with palm anatomy. This conversion is applied automatically in all demo scripts via `brainco_retargeting._utils.mp21_to_xr25()`.
 
 ## Handedness Convention
 
@@ -173,15 +211,15 @@ MediaPipe uses a **mirrored** convention for front-facing cameras: its `"Left"` 
 
 ```
 # 1. Record raw hand motion from a video
-uv run demos/record_video.py --input clip.mp4 --hand right --output-npz landmarks.npz
+python demos/record_video.py --input clip.mp4 --hand right --output-npz landmarks.npz
 
 # 2a. Retarget to motor commands
-uv run demos/retarget_npz.py --input landmarks.npz --output-npz motors.npz
+python demos/retarget_npz.py --input landmarks.npz --output-npz motors.npz
 
 # 2b. Or retarget + render visualisation video
-uv run demos/retarget_npz.py --input landmarks.npz --output-video hand.mp4
+python demos/retarget_npz.py --input landmarks.npz --output-video hand.mp4
 
 # — or do steps 1+2 in one shot from a video —
-uv run demos/retarget_video.py --input clip.mp4 --hand right \
+python demos/retarget_video.py --input clip.mp4 --hand right \
     --output-npz motors.npz --output-video out.mp4
 ```

@@ -1,11 +1,3 @@
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#   "mediapipe==0.10.21",
-#   "opencv-python>=4.8",
-#   "numpy>=1.24",
-# ]
-# ///
 """Record hand landmarks (no retargeting) from a video file or live webcam.
 
 Outputs a .npz file with keys:
@@ -27,13 +19,11 @@ from pathlib import Path
 # Must be set before cv2/Qt initialises to prevent black windows on Linux+NVIDIA
 os.environ.setdefault("QT_X11_NO_MITSHM", "1")
 
-sys.path.insert(0, str(Path(__file__).parent))
-
 import cv2
 import mediapipe as mp
 import numpy as np
 
-from _utils import draw_hand_skeleton_mp21, mp21_to_xr25
+from brainco_retargeting._utils import draw_hand_skeleton_mp21, mp21_to_xr25
 
 
 def parse_args():

@@ -1,26 +1,3 @@
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#   "mediapipe==0.10.21",
-#   "sapien>=3.0.0",
-#   "opencv-python>=4.8",
-#   "numpy>=1.24",
-#   "pyyaml",
-#   "dex-retargeting @ git+https://github.com/dexsuite/dex-retargeting",
-#   "torch",
-# ]
-#
-# [tool.uv]
-# override-dependencies = ["numpy>=1.24,<2"]
-#
-# [[tool.uv.index]]
-# name = "pytorch-cpu"
-# url = "https://download.pytorch.org/whl/cpu"
-# explicit = true
-#
-# [tool.uv.sources]
-# torch = { index = "pytorch-cpu" }
-# ///
 """Real-time hand retargeting demo using a webcam.
 
 Opens a camera, runs MediaPipe Hands on each frame, converts the 21-pt
@@ -50,7 +27,7 @@ import numpy as np
 
 from brainco_retargeting._utils import SapienHandRenderer, _MOTOR_RANGES, draw_hand_skeleton_mp21, draw_motor_bars, mp21_to_xr25
 from brainco_retargeting import BrainCoRetargeter
-import np_retargeting as _np_retargeting
+from brainco_retargeting import np_retargeting as _np_retargeting
 
 _NP_JOINT_ORDER = [
     'thumb_metacarpal', 'thumb_proximal',
