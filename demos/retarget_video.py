@@ -23,7 +23,8 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from brainco_retargeting._utils import SapienHandRenderer, VideoWriter, draw_hand_skeleton_mp21, draw_motor_bars, mp21_to_xr25
+from brainco_retargeting._utils import SapienHandRenderer, VideoWriter, draw_hand_skeleton_mp21, draw_motor_bars, mp21_to_xr25, select_hand
+from brainco_retargeting._geometry import MIRRORED_INPUT
 from brainco_retargeting import BrainCoRetargeter
 
 
@@ -34,7 +35,7 @@ def parse_args():
         "--hand",
         choices=["left", "right", "auto"],
         default="auto",
-        help="Which hand to retarget. 'auto' mirrors MediaPipe's front-cam convention.",
+        help="Which physical hand to retarget. 'auto' uses whichever hand is detected (side from geometry).",
     )
     p.add_argument("--output-npz", type=str, default=None, help="Output .npz for motor commands")
     p.add_argument("--output-video", type=str, default=None,
@@ -85,6 +86,9 @@ def main():
             break
         frame_idx += 1
 
+        if MIRRORED_INPUT:
+            frame = cv2.flip(frame, 1)
+
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame_rgb.flags.writeable = False
         results = hands.process(frame_rgb)
@@ -93,35 +97,16 @@ def main():
         motors = np.zeros(6)
         cam_panel = cv2.resize(frame, (pw, ph))
 
-        if results.multi_hand_landmarks and results.multi_handedness:
-            # Find the target hand: MediaPipe labels are mirrored (camera perspective),
-            # so "Left" = actual right hand and "Right" = actual left hand.
-            target_idx = None
-            if args.hand != "auto":
-                mp_label_wanted = "Left" if args.hand == "right" else "Right"
-                for hidx, handedness in enumerate(results.multi_handedness):
-                    if handedness.classification[0].label == mp_label_wanted:
-                        target_idx = hidx
-                        break
-            if target_idx is None:
-                target_idx = 0
+        picked = select_hand(results, args.hand)
+        if picked is not None and results.multi_hand_world_landmarks:
+            target_idx, detected_side = picked
 
-            if not results.multi_hand_world_landmarks:
-                continue
             wl = results.multi_hand_world_landmarks[target_idx]
             mp21 = np.array([[lm.x, lm.y, lm.z] for lm in wl.landmark], dtype=np.float64)
-            xr25 = mp21_to_xr25(mp21)
+            xr25 = retargeter.canonicalize(mp21_to_xr25(mp21), detected_side)
 
-            mp_side_raw = results.multi_handedness[target_idx].classification[0].label
-            mp_side = "right" if mp_side_raw == "Left" else "left"
-            if args.hand != "auto":
-                mp_side = args.hand
-
-            if detected_side != mp_side:
-                detected_side = mp_side
-                if args.output_video:
-                    # Re-initialise renderer if side changes
-                    renderer = SapienHandRenderer(detected_side, pw, ph)
+            if args.output_video and (renderer is None or renderer.side != detected_side):
+                renderer = SapienHandRenderer(detected_side, pw, ph)
 
             retarget_fn = (retargeter.retarget_left if detected_side == "left"
                            else retargeter.retarget_right)

@@ -23,7 +23,8 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from brainco_retargeting._utils import draw_hand_skeleton_mp21, mp21_to_xr25
+from brainco_retargeting._utils import draw_hand_skeleton_mp21, mp21_to_xr25, select_hand
+from brainco_retargeting._geometry import MIRRORED_INPUT
 
 
 def parse_args():
@@ -36,7 +37,7 @@ def parse_args():
         "--hand",
         choices=["left", "right", "auto"],
         default="auto",
-        help="Which hand to track. 'auto' uses MediaPipe handedness (mirrors front-cam convention).",
+        help="Which physical hand to track. 'auto' uses whichever hand is detected (side from geometry).",
     )
     p.add_argument("--output-npz", type=str, required=True, help="Output .npz file path")
     p.add_argument("--preview", action="store_true", help="Show live preview window")
@@ -96,24 +97,24 @@ def main():
             break
         frame_idx += 1
 
+        if MIRRORED_INPUT:
+            frame = cv2.flip(frame, 1)
+
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = hands.process(frame_rgb)
 
-        if results.multi_hand_world_landmarks and results.multi_handedness:
-            wl = results.multi_hand_world_landmarks[0]
+        picked = select_hand(results, args.hand)
+        if picked is not None and results.multi_hand_world_landmarks:
+            target_idx, detected_side = picked
+            wl = results.multi_hand_world_landmarks[target_idx]
             mp21 = np.array([[lm.x, lm.y, lm.z] for lm in wl.landmark], dtype=np.float64)
+            # Save raw (un-canonicalized) landmarks; retarget_npz canonicalizes per frame.
             xr25 = mp21_to_xr25(mp21)
-
-            mp_side_raw = results.multi_handedness[0].classification[0].label
-            mp_side = "right" if mp_side_raw == "Left" else "left"
-            if args.hand != "auto":
-                mp_side = args.hand
-            detected_side = mp_side
 
             accumulated.append(xr25)
 
             if args.preview and results.multi_hand_landmarks:
-                draw_hand_skeleton_mp21(frame, results.multi_hand_landmarks[0])
+                draw_hand_skeleton_mp21(frame, results.multi_hand_landmarks[target_idx])
 
         if args.preview:
             cv2.putText(frame, f"Frames: {len(accumulated)}", (10, 30),

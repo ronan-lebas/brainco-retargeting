@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 from pathlib import Path
 
+from brainco_retargeting._geometry import MIRRORED_INPUT, detect_hand_side
+
 _MOTOR_RANGES = [
     (0.0, 1.52),  # thumb_metacarpal
     (0.0, 1.05),  # thumb_proximal
@@ -40,6 +42,42 @@ _MP_CONNECTIONS = [
     (0, 17), (17, 18), (18, 19), (19, 20),
     (5, 9), (9, 13), (13, 17),
 ]
+
+
+def select_hand(results, want: str = "auto"):
+    """Pick which detected hand to use, with its true (geometry-based) side.
+
+    The side is read from 3D
+    landmark geometry (see ``detect_hand_side``) rather than MediaPipe's
+    unreliable handedness label.
+
+    Args:
+        results: a MediaPipe ``Hands`` result (``multi_hand_landmarks`` etc.).
+        want:    ``"left"`` / ``"right"`` (the physical hand to track) or
+                 ``"auto"`` (use whichever hand is detected).
+
+    Returns:
+        ``(index, side)`` — the index into ``results.multi_hand_landmarks`` and
+        the detected side (``"left"``/``"right"``) of that hand — or ``None`` if
+        no hand was detected. When ``want`` is a specific hand but it is not on
+        screen, falls back to the first detected hand (so something is always
+        shown) while still reporting that hand's true side.
+    """
+    normalized = results.multi_hand_landmarks
+    if not normalized:
+        return None
+    # Prefer metric world landmarks for the chirality test; fall back to the
+    # normalized landmarks if (rarely) world landmarks are unavailable.
+    source = results.multi_hand_world_landmarks or normalized
+    sides = [
+        detect_hand_side(np.array([[lm.x, lm.y, lm.z] for lm in hand.landmark]))
+        for hand in source
+    ]
+    if want in ("left", "right"):
+        for i, side in enumerate(sides):
+            if side == want:
+                return i, side
+    return 0, sides[0]
 
 
 def mp21_to_xr25(mp_landmarks: np.ndarray) -> np.ndarray:
@@ -143,6 +181,7 @@ class SapienHandRenderer:
         sr.set_log_level("error")
 
         self._sapien = sapien
+        self.side = side
         self._width = width
         self._height = height
 

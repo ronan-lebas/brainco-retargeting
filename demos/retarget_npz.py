@@ -22,6 +22,7 @@ import cv2
 import numpy as np
 
 from brainco_retargeting._utils import SapienHandRenderer, VideoWriter, draw_motor_bars
+from brainco_retargeting._geometry import detect_hand_side
 from brainco_retargeting import BrainCoRetargeter
 
 
@@ -57,6 +58,13 @@ def main():
         sys.exit(f"Expected side 'left' or 'right', got '{side}'")
 
     n_frames = len(landmarks)
+
+    # Derive the side from landmark geometry rather than trusting the stored
+    # label
+    geo_side = detect_hand_side(landmarks[0])
+    if geo_side != side:
+        print(f"Note: stored side='{side}' but geometry says '{geo_side}'; using '{geo_side}'.")
+    side = geo_side
     print(f"Input: {args.input}  ({n_frames} frames, side={side})")
 
     retargeter = BrainCoRetargeter()
@@ -74,7 +82,7 @@ def main():
     all_motors: list[np.ndarray] = []
 
     for i, lm in enumerate(landmarks):
-        motors = retarget_fn(lm)
+        motors = retarget_fn(retargeter.canonicalize(lm, side))
         all_motors.append(motors)
 
         if renderer is not None and video_writer is not None:

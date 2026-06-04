@@ -203,9 +203,22 @@ with retarget_streaming.VideoRetargeter(hand="right") as vr:
 
 Standard MediaPipe gives 21 landmarks. The 4 missing metacarpal joints (indices 5, 10, 15, 20) are synthesised by placing them at 1/3 of the wrist→MCP vector, consistent with palm anatomy. This conversion is applied automatically in all demo scripts via `brainco_retargeting._utils.mp21_to_xr25()`.
 
-## Handedness Convention
+## Handedness & Camera Convention
 
-MediaPipe uses a **mirrored** convention for front-facing cameras: its `"Left"` label corresponds to the person's **right** hand. All demo scripts apply this correction automatically when `--hand auto` is used.
+**Wrist-frame canonicalization** (`BrainCoRetargeter.canonicalize`). MediaPipe
+  world landmarks are in the *camera* frame, but the dex-retargeting optimizer
+  matches 3D bone vectors against the robot's `base_link` frame. Canonicalization rotates the landmarks into
+  the robot frame using a hand-local basis built from the wrist and knuckles, so
+  retargeting works in **any** hand orientation (the quality still depends on Mediapipe detection, so under some hand rotations occlusions can lower the retargeting quality).
+
+**Camera setup.** The default assumes a **non-mirrored** feed (phone back camera
+or a raw video file). For a **front/selfie** camera, set `MIRRORED_INPUT = True`
+in `brainco_retargeting/_geometry.py` (the demos then flip the frame so that
+left/right and the on-screen overlay match reality). If left and right ever come
+out swapped, toggle that one constant.
+
+> **Note:** `canonicalize()` is for camera-frame input (MediaPipe). For hand
+> tracking that is already in a consistent metric frame (e.g. Meta Quest), feed `retarget_left` / `retarget_right` directly.
 
 ## Typical Workflow
 

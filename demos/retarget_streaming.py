@@ -40,7 +40,9 @@ from brainco_retargeting._utils import (
     draw_hand_skeleton_mp21,
     draw_motor_bars,
     mp21_to_xr25,
+    select_hand,
 )
+from brainco_retargeting._geometry import MIRRORED_INPUT
 
 from brainco_retargeting import np_retargeting as _np_retargeting
 
@@ -155,6 +157,9 @@ class VideoRetargeter:
                 if not ok:
                     break
 
+                if MIRRORED_INPUT:
+                    frame = cv2.flip(frame, 1)
+
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frame_rgb.flags.writeable = False
                 results = hands.process(frame_rgb)
@@ -162,16 +167,9 @@ class VideoRetargeter:
 
                 cam_panel = cv2.resize(frame, (panel_w, panel_h))
 
-                if results.multi_hand_landmarks and results.multi_handedness:
-                    target_idx = None
-                    if self._hand != "auto":
-                        mp_label_wanted = "Left" if self._hand == "right" else "Right"
-                        for hidx, handedness in enumerate(results.multi_handedness):
-                            if handedness.classification[0].label == mp_label_wanted:
-                                target_idx = hidx
-                                break
-                    if target_idx is None:
-                        target_idx = 0
+                picked = select_hand(results, self._hand)
+                if picked is not None:
+                    target_idx, active_side = picked
 
                     if self._np_retarget:
                         src = results.multi_hand_landmarks[target_idx]
@@ -182,13 +180,7 @@ class VideoRetargeter:
 
                     mp21 = np.array([[lm.x, lm.y, lm.z] for lm in src.landmark], dtype=np.float64)
 
-                    mp_side_raw = results.multi_handedness[target_idx].classification[0].label
-                    mp_side = "right" if mp_side_raw == "Left" else "left"
-                    if self._hand != "auto":
-                        mp_side = self._hand
-
-                    if active_side != mp_side:
-                        active_side = mp_side
+                    if renderer.side != active_side:
                         renderer = SapienHandRenderer(active_side, panel_w, panel_h)
 
                     if self._np_retarget:
@@ -196,7 +188,7 @@ class VideoRetargeter:
                         raw = np.array([angles[f'{active_side}_{k}_joint'] for k in _NP_JOINT_ORDER])
                         motors = np.array([(r - lo) / (hi - lo) for r, (lo, hi) in zip(raw, _MOTOR_RANGES)])
                     else:
-                        xr25 = mp21_to_xr25(mp21)
+                        xr25 = retargeter.canonicalize(mp21_to_xr25(mp21), active_side)
                         retarget_fn = retargeter.retarget_left if active_side == "left" else retargeter.retarget_right
                         motors = retarget_fn(xr25)
 
